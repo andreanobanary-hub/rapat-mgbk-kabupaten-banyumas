@@ -5,29 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MGBK Meet Banyumas - Ruang Koordinasi Virtual Guru BK</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Menggunakan script API dari server komunitas terbuka (bebas wajib login moderator) -->
-  <script src="https://meet.ffmuc.net/external_api.js"></script>
+  <!-- PeerJS untuk koneksi Video/Audio WebRTC langsung antar peserta tanpa blokir iframe -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
-    
-    #jitsiContainer {
+    video {
       width: 100%;
-      height: calc(100vh - 112px);
-      min-height: 500px;
-      position: relative;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 0.75rem;
+      background-color: #020617;
     }
-    #jitsiContainer iframe {
-      width: 100% !important;
-      height: 100% !important;
-      border: none !important;
-      display: block !important;
-    }
-
+    .mirror { transform: scaleX(-1); }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0f172a; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
@@ -55,15 +48,15 @@
   <!-- Lobby / Form Masuk & Presensi -->
   <main id="lobbySection" class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
     
-    <!-- Form Gabung Rapat (Kiri - 7 Kolom) -->
+    <!-- Form Gabung Rapat (Kiri) -->
     <div class="lg:col-span-7 bg-slate-800 border border-slate-700 rounded-2xl p-6 sm:p-7 shadow-xl">
       <div class="flex items-start justify-between gap-4 mb-5">
         <div>
           <h2 class="text-xl font-bold text-white">Masuk Ruang Rapat & Presensi</h2>
-          <p class="text-sm text-slate-400 mt-1">Kehadiran Anda otomatis tercatat ke Google Sheets MGBK saat bergabung.</p>
+          <p class="text-sm text-slate-400 mt-1">Kehadiran otomatis tercatat ke Google Sheets MGBK saat bergabung.</p>
         </div>
         <span class="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Server Terbuka
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Direct WebRTC
         </span>
       </div>
 
@@ -71,14 +64,14 @@
         <div>
           <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Nama Lengkap & Gelar *</label>
           <input type="text" id="nama" required placeholder="Contoh: Andriyono, S.Pd."
-            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition" />
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition" />
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Asal Sekolah *</label>
             <input type="text" id="sekolah" required placeholder="Contoh: SMP Negeri 2 Pekuncen"
-              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition" />
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition" />
           </div>
           <div>
             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Wilayah Sub Rayon *</label>
@@ -127,32 +120,26 @@
         </div>
 
         <div id="customRoomBox" class="hidden">
-          <label class="block text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-1.5">Nama Ruang Khusus (Gunakan tanda hubung, tanpa spasi)</label>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-1.5">Nama Ruang Khusus (Tanpa Spasi)</label>
           <input type="text" id="customRoomInput" placeholder="Contoh: Tim-Penyusun-AKPD-2026"
-            class="w-full bg-slate-900 border border-emerald-500/50 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400" />
+            class="w-full bg-slate-900 border border-emerald-500/50 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none" />
         </div>
 
         <div class="pt-3 flex flex-col sm:flex-row gap-3">
           <button type="submit" id="btnJoin"
-            class="flex-1 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold py-3 px-5 rounded-xl transition shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 cursor-pointer">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
+            class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-5 rounded-xl transition shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 cursor-pointer">
             <span>Gabung Rapat & Isi Presensi</span>
           </button>
 
           <button type="button" onclick="copyInviteLink()"
-            class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-3 px-4 rounded-xl transition text-sm flex items-center justify-center gap-2 cursor-pointer">
-            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-            </svg>
-            <span>Salin Undangan WA</span>
+            class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-3 px-4 rounded-xl transition text-sm cursor-pointer">
+            Salin Undangan WA
           </button>
         </div>
       </form>
     </div>
 
-    <!-- Daftar Hadir Terbaru (Kanan - 5 Kolom) -->
+    <!-- Daftar Hadir Terbaru (Kanan) -->
     <div class="lg:col-span-5 bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl flex flex-col">
       <div class="flex items-center justify-between mb-4">
         <div>
@@ -162,59 +149,111 @@
           </h3>
           <p class="text-xs text-slate-400">Sinkronisasi real-time Google Sheets</p>
         </div>
-        <button onclick="loadAttendance()" id="btnRefresh" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-slate-200 transition flex items-center gap-1.5 cursor-pointer">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          <span>Refresh</span>
+        <button onclick="loadAttendance()" id="btnRefresh" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-slate-200 transition cursor-pointer">
+          Refresh
         </button>
       </div>
 
       <div id="attendanceList" class="space-y-2.5 max-h-[410px] overflow-y-auto pr-1">
-        <div class="text-xs text-slate-400 text-center py-10">Memuat data kehadiran dari server...</div>
+        <div class="text-xs text-slate-400 text-center py-10">Memuat data kehadiran...</div>
       </div>
     </div>
   </main>
 
-  <!-- Area Video Conference (Tersembunyi sebelum gabung) -->
-  <section id="meetingSection" class="hidden w-full flex-1 flex flex-col bg-slate-950">
-    <div class="bg-slate-800 border-b border-slate-700 px-4 h-[48px] flex items-center justify-between gap-2">
-      <div class="text-xs text-slate-300 flex items-center gap-2 truncate">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
-        <span class="truncate">Peserta: <strong id="displayParticipant" class="text-white"></strong></span>
-        <span class="hidden md:inline text-slate-600">|</span>
-        <span class="hidden md:inline text-emerald-400 font-semibold">Presensi Tercatat ✓</span>
+  <!-- Area Video Conference Native (Tanpa Iframe Pihak Ketiga) -->
+  <section id="meetingSection" class="hidden flex-1 flex flex-col bg-slate-950 h-[calc(100vh-64px)]">
+    
+    <!-- Top Info Bar -->
+    <div class="bg-slate-800/90 border-b border-slate-700 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+      <div class="text-xs text-slate-300 flex items-center gap-2">
+        <span id="connStatusDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="connStatusText">Menghubungkan ke ruang...</span>
       </div>
-      <div class="flex items-center gap-2 shrink-0">
-        <button onclick="copyInviteLink()" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded-lg text-white transition cursor-pointer">
-          Salin Info Rapat
-        </button>
-        <button onclick="leaveMeeting()" class="bg-rose-600 hover:bg-rose-500 text-xs font-semibold px-3.5 py-1.5 rounded-lg text-white transition cursor-pointer">
-          Keluar Ruang
+      <div class="flex items-center gap-2">
+        <button onclick="copyInviteLink()" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded-lg text-white cursor-pointer">
+          Salin Tautan Undangan
         </button>
       </div>
     </div>
-    <div id="jitsiContainer"></div>
+
+    <!-- Main Content: Video Grid + Chat Sidebar -->
+    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      
+      <!-- Video Grid -->
+      <div class="flex-1 p-3 sm:p-4 overflow-y-auto flex items-center justify-center">
+        <div id="videoGrid" class="w-full h-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 auto-rows-fr">
+          <!-- Kotak Video Sendiri -->
+          <div class="relative bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-lg min-h-[220px]">
+            <video id="localVideo" autoplay muted playsinline class="mirror"></video>
+            <div class="absolute bottom-2.5 left-2.5 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded-lg text-xs font-medium text-white border border-slate-700 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span id="localNameLabel">Anda</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Panel -->
+      <aside id="chatPanel" class="w-full lg:w-80 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col h-64 lg:h-auto">
+        <div class="px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Obrolan Ruang Rapat</span>
+          <span id="peerCountLabel" class="text-[11px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full">1 Peserta</span>
+        </div>
+        <div id="chatMessages" class="flex-1 p-3 overflow-y-auto space-y-2 text-xs">
+          <div class="text-slate-500 text-center py-2">Selamat datang di ruang koordinasi MGBK Banyumas.</div>
+        </div>
+        <form id="chatForm" class="p-2.5 border-t border-slate-800 flex gap-2">
+          <input type="text" id="chatInput" placeholder="Ketik pesan..." autocomplete="off"
+            class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
+          <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer">
+            Kirim
+          </button>
+        </form>
+      </aside>
+    </div>
+
+    <!-- Bottom Controls Toolbar -->
+    <div class="bg-slate-900 border-t border-slate-800 px-4 py-3 flex items-center justify-center gap-3">
+      <button onclick="toggleAudio()" id="btnAudio" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 transition cursor-pointer">
+        <span>🎤 Mikrofon Aktif</span>
+      </button>
+      <button onclick="toggleVideo()" id="btnVideo" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 transition cursor-pointer">
+        <span>📹 Kamera Aktif</span>
+      </button>
+      <button onclick="shareScreen()" id="btnScreen" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl hidden sm:flex items-center gap-2 transition cursor-pointer">
+        <span>🖥️ Bagikan Layar</span>
+      </button>
+      <button onclick="leaveMeeting()" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition cursor-pointer">
+        Keluar Rapat
+      </button>
+    </div>
   </section>
 
   <!-- Toast Notification -->
-  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden bg-slate-800 border border-emerald-500/50 text-white px-4 py-3 rounded-xl shadow-2xl text-sm flex items-center gap-2.5 transition-all">
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden bg-slate-800 border border-emerald-500/50 text-white px-4 py-3 rounded-xl shadow-2xl text-sm flex items-center gap-2.5">
     <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
     <span id="toastMessage">Pesan notifikasi</span>
   </div>
 
   <script>
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwu6iinU72EfE3lmm2YDmFNVbI8xfZ-45kNr5kaGwu27-knrvvw4TgQrrIqqrbE_NPmWg/exec";
+    const MAX_SLOTS = 12; // Maksimal 12 slot peserta per ruang koordinasi
 
-    let jitsiApi = null;
+    let peer = null;
+    let localStream = null;
+    let mySlotIndex = -1;
+    let myDisplayName = "";
+    let currentRoomPrefix = "";
+    let activeCalls = {};
+    let dataConnections = {};
+    let isAudioEnabled = true;
+    let isVideoEnabled = true;
 
     function showToast(msg) {
       const toast = document.getElementById("toast");
       document.getElementById("toastMessage").innerText = msg;
       toast.classList.remove("hidden");
-      setTimeout(() => {
-        toast.classList.add("hidden");
-      }, 3500);
+      setTimeout(() => toast.classList.add("hidden"), 3500);
     }
 
     window.addEventListener("DOMContentLoaded", () => {
@@ -237,18 +276,12 @@
           document.getElementById("customRoomInput").value = roomParam;
         }
       }
-
       loadAttendance();
     });
 
     function toggleCustomRoom() {
       const val = document.getElementById("ruangSelect").value;
-      const box = document.getElementById("customRoomBox");
-      if (val === "CUSTOM") {
-        box.classList.remove("hidden");
-      } else {
-        box.classList.add("hidden");
-      }
+      document.getElementById("customRoomBox").classList.toggle("hidden", val !== "CUSTOM");
     }
 
     function getSelectedRoom() {
@@ -265,48 +298,34 @@
       const baseUrl = window.location.origin + window.location.pathname;
       const inviteUrl = `${baseUrl}?room=${encodeURIComponent(room)}`;
       const pesanWA = `*UNDANGAN KOORDINASI VIRTUAL MGBK SMP/MTs KAB. BANYUMAS*\n\nRuang Rapat: *${room}*\nSilakan bergabung & mengisi daftar hadir otomatis melalui tautan berikut:\n${inviteUrl}\n\nTerima kasih.`;
-      
       navigator.clipboard.writeText(pesanWA).then(() => {
-        showToast("Teks undangan WhatsApp & tautan ruang berhasil disalin!");
-      }).catch(() => {
-        alert(pesanWA);
+        showToast("Undangan WhatsApp & tautan ruang disalin!");
       });
     }
 
     function escapeHtml(str) {
       if (!str) return "";
-      return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+      return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     }
 
     async function loadAttendance() {
       const container = document.getElementById("attendanceList");
       const countBadge = document.getElementById("attendeeCount");
-      const btnRefresh = document.getElementById("btnRefresh");
-      
-      btnRefresh.disabled = true;
-      btnRefresh.classList.add("opacity-50");
-
       try {
         const res = await fetch(APPS_SCRIPT_URL);
         const data = await res.json();
-        
         if (!Array.isArray(data) || data.length === 0) {
           countBadge.innerText = "0";
-          container.innerHTML = `<div class="text-xs text-slate-400 text-center py-8 bg-slate-900/50 rounded-xl border border-slate-700/50">Belum ada peserta yang tercatat di daftar hadir.</div>`;
+          container.innerHTML = `<div class="text-xs text-slate-400 text-center py-8 bg-slate-900/50 rounded-xl">Belum ada peserta tercatat.</div>`;
           return;
         }
-
         countBadge.innerText = data.length;
         container.innerHTML = data.map(item => `
-          <div class="bg-slate-900/80 border border-slate-700/80 hover:border-slate-600 rounded-xl p-3 flex items-start justify-between gap-2 transition">
+          <div class="bg-slate-900/80 border border-slate-700/80 rounded-xl p-3 flex items-start justify-between gap-2">
             <div class="min-w-0">
               <p class="text-sm font-semibold text-white truncate">${escapeHtml(item.nama)}</p>
               <p class="text-xs text-slate-300 truncate">${escapeHtml(item.sekolah)}</p>
-              <div class="flex flex-wrap items-center gap-1.5 mt-1">
+              <div class="flex items-center gap-1.5 mt-1">
                 <span class="text-[10px] font-medium bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-md">${escapeHtml(item.subRayon)}</span>
                 <span class="text-[10px] text-slate-400 truncate">• ${escapeHtml(item.ruang)}</span>
               </div>
@@ -317,10 +336,7 @@
           </div>
         `).join("");
       } catch (err) {
-        container.innerHTML = `<div class="text-xs text-rose-400 text-center py-6 bg-rose-500/10 border border-rose-500/20 rounded-xl">Gagal memuat daftar hadir. Periksa koneksi internet Anda.</div>`;
-      } finally {
-        btnRefresh.disabled = false;
-        btnRefresh.classList.remove("opacity-50");
+        container.innerHTML = `<div class="text-xs text-rose-400 text-center py-6">Gagal memuat daftar hadir.</div>`;
       }
     }
 
@@ -333,75 +349,297 @@
       const ruang = getSelectedRoom();
 
       localStorage.setItem("mgbk_user_profile", JSON.stringify({ nama, sekolah, subRayon, jabatan }));
+      myDisplayName = `${nama} (${sekolah})`;
 
       const btn = document.getElementById("btnJoin");
-      const originalHtml = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = `<span>Menghubungkan & Mencatat Presensi...</span>`;
+      btn.innerText = "Mengaktifkan Kamera & Presensi...";
 
-      try {
-        await fetch(APPS_SCRIPT_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ nama, sekolah, subRayon, jabatan, ruang })
-        });
-      } catch (err) {
-        console.error("Presensi error:", err);
-      }
+      // Kirim presensi ke Google Sheets
+      fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ nama, sekolah, subRayon, jabatan, ruang })
+      }).catch(() => {});
 
-      startMeeting(ruang, `${nama} (${sekolah})`);
+      await initNativeMeeting(ruang);
       btn.disabled = false;
-      btn.innerHTML = originalHtml;
+      btn.innerText = "Gabung Rapat & Isi Presensi";
     });
 
-    function startMeeting(roomName, displayName) {
+    async function initNativeMeeting(roomName) {
+      // Minta izin kamera dan mikrofon
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      } catch (err) {
+        try {
+          // Fallback jika kamera tidak ada (audio saja)
+          localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+          showToast("Kamera tidak terdeteksi, bergabung dengan mode suara.");
+        } catch (audioErr) {
+          // Fallback jika tidak ada mic/kamera sama sekali (hanya menonton & chat)
+          localStream = new MediaStream();
+          showToast("Bergabung dalam mode menyimak (tanpa kamera/mikrofon).");
+        }
+      }
+
       document.getElementById("lobbySection").classList.add("hidden");
       document.getElementById("meetingSection").classList.remove("hidden");
       document.getElementById("roomBadge").classList.remove("hidden");
       document.getElementById("roomBadge").classList.add("flex");
       document.getElementById("activeRoomLabel").innerText = roomName;
-      document.getElementById("displayParticipant").innerText = displayName;
+      document.getElementById("localNameLabel").innerText = myDisplayName + " (Anda)";
 
-      // Menggunakan server Jitsi komunitas terbuka (tanpa wajib login moderator)
-      const domain = "meet.ffmuc.net";
-      const options = {
-        roomName: roomName,
-        width: "100%",
-        height: "100%",
-        parentNode: document.querySelector("#jitsiContainer"),
-        userInfo: {
-          displayName: displayName
-        },
-        configOverwrite: {
-          startWithAudioMuted: true,
-          startWithVideoMuted: false,
-          prejoinPageEnabled: false,
-          defaultLanguage: "id"
-        },
-        interfaceConfigOverwrite: {
-          SHOW_JITSI_WATERMARK: false,
-          SHOW_WATERMARK_FOR_GUESTS: false,
-          TOOLBAR_BUTTONS: [
-            "microphone", "camera", "desktop", "chat",
-            "raisehand", "participants-pane", "tileview",
-            "fullscreen", "settings", "hangup"
+      const localVideo = document.getElementById("localVideo");
+      localVideo.srcObject = localStream;
+
+      // Sanitize nama ruang untuk ID PeerJS
+      currentRoomPrefix = "mgbk-bms-" + roomName.toLowerCase().replace(/[^a-z0-9]/g, "");
+      claimSlotAndConnect(0);
+    }
+
+    // Mencari slot kosong (0..11) di ruang tersebut dan terhubung ke semua peserta yang sudah masuk
+    function claimSlotAndConnect(slot) {
+      if (slot >= MAX_SLOTS) {
+        alert("Ruang koordinasi sudah penuh (maksimal 12 peserta simultan).");
+        leaveMeeting();
+        return;
+      }
+
+      const candidateId = `${currentRoomPrefix}-slot-${slot}`;
+      const tempPeer = new Peer(candidateId, {
+        config: {
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" }
           ]
         }
-      };
+      });
 
-      jitsiApi = new JitsiMeetExternalAPI(domain, options);
-      jitsiApi.addEventListener("readyToClose", () => {
-        leaveMeeting();
+      tempPeer.on("open", (id) => {
+        peer = tempPeer;
+        mySlotIndex = slot;
+        document.getElementById("connStatusDot").className = "w-2 h-2 rounded-full bg-emerald-400";
+        document.getElementById("connStatusText").innerText = `Terhubung sebagai Peserta #${slot + 1} (${myDisplayName})`;
+
+        setupPeerListeners();
+
+        // Panggil semua slot lain (0 sampai MAX_SLOTS - 1) yang mungkin sudah ada di ruangan
+        for (let i = 0; i < MAX_SLOTS; i++) {
+          if (i !== mySlotIndex) {
+            connectToPeerSlot(`${currentRoomPrefix}-slot-${i}`);
+          }
+        }
+      });
+
+      tempPeer.on("error", (err) => {
+        if (err.type === "unavailable-id") {
+          // Slot ini sudah dipakai peserta lain, coba slot berikutnya
+          tempPeer.destroy();
+          claimSlotAndConnect(slot + 1);
+        } else {
+          console.warn("Peer info:", err.type);
+        }
       });
     }
 
-    function leaveMeeting() {
-      if (jitsiApi) {
-        jitsiApi.dispose();
-        jitsiApi = null;
+    function setupPeerListeners() {
+      // Terima panggilan video dari peserta baru yang masuk
+      peer.on("call", (call) => {
+        call.answer(localStream);
+        const remoteName = call.metadata?.name || "Rekan Guru BK";
+        handleIncomingCall(call, remoteName);
+      });
+
+      // Terima koneksi data (chat & nama peserta)
+      peer.on("connection", (conn) => {
+        setupDataConnection(conn);
+      });
+    }
+
+    function connectToPeerSlot(targetPeerId) {
+      // Buat koneksi data untuk bertukar nama & chat
+      const conn = peer.connect(targetPeerId, { metadata: { name: myDisplayName } });
+      setupDataConnection(conn);
+
+      // Lakukan panggilan video/audio jika memiliki stream
+      if (localStream && localStream.getTracks().length > 0) {
+        const call = peer.call(targetPeerId, localStream, { metadata: { name: myDisplayName } });
+        if (call) {
+          handleIncomingCall(call, "Rekan Guru BK");
+        }
       }
-      document.getElementById("jitsiContainer").innerHTML = "";
+    }
+
+    function setupDataConnection(conn) {
+      conn.on("open", () => {
+        dataConnections[conn.peer] = conn;
+        conn.send({ type: "hello", name: myDisplayName });
+        updateParticipantCount();
+      });
+
+      conn.on("data", (data) => {
+        if (data.type === "hello" && data.name) {
+          const labelEl = document.getElementById(`label-${conn.peer}`);
+          if (labelEl) labelEl.innerText = data.name;
+        } else if (data.type === "chat") {
+          appendChatMessage(data.sender, data.text, false);
+        }
+      });
+
+      conn.on("close", () => {
+        delete dataConnections[conn.peer];
+        removeRemoteVideo(conn.peer);
+        updateParticipantCount();
+      });
+    }
+
+    function handleIncomingCall(call, initialName) {
+      activeCalls[call.peer] = call;
+
+      call.on("stream", (remoteStream) => {
+        addRemoteVideo(call.peer, remoteStream, initialName);
+      });
+
+      call.on("close", () => {
+        delete activeCalls[call.peer];
+        removeRemoteVideo(call.peer);
+      });
+    }
+
+    function addRemoteVideo(peerId, stream, displayName) {
+      if (document.getElementById(`box-${peerId}`)) return;
+
+      const grid = document.getElementById("videoGrid");
+      const box = document.createElement("div");
+      box.id = `box-${peerId}`;
+      box.className = "relative bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-lg min-h-[220px]";
+
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+
+      const badge = document.createElement("div");
+      badge.className = "absolute bottom-2.5 left-2.5 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded-lg text-xs font-medium text-white border border-slate-700 flex items-center gap-1.5";
+      badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span id="label-${peerId}">${escapeHtml(displayName)}</span>`;
+
+      box.appendChild(video);
+      box.appendChild(badge);
+      grid.appendChild(box);
+      updateParticipantCount();
+    }
+
+    function removeRemoteVideo(peerId) {
+      const box = document.getElementById(`box-${peerId}`);
+      if (box) box.remove();
+      updateParticipantCount();
+    }
+
+    function updateParticipantCount() {
+      const total = 1 + Object.keys(dataConnections).length;
+      document.getElementById("peerCountLabel").innerText = `${total} Peserta`;
+    }
+
+    // Fitur Chat
+    document.getElementById("chatForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("chatInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+      appendChatMessage("Anda", text, true);
+      Object.values(dataConnections).forEach(conn => {
+        if (conn.open) {
+          conn.send({ type: "chat", sender: myDisplayName, text });
+        }
+      });
+      input.value = "";
+    });
+
+    function appendChatMessage(sender, text, isSelf) {
+      const box = document.getElementById("chatMessages");
+      const item = document.createElement("div");
+      item.className = isSelf
+        ? "bg-emerald-600/20 border border-emerald-500/30 rounded-lg p-2 ml-4"
+        : "bg-slate-800 border border-slate-700 rounded-lg p-2 mr-4";
+      item.innerHTML = `<p class="font-semibold text-[11px] ${isSelf ? 'text-emerald-400' : 'text-sky-400'}">${escapeHtml(sender)}</p><p class="text-slate-200 mt-0.5 break-words">${escapeHtml(text)}</p>`;
+      box.appendChild(item);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // Kontrol Mikrofon, Kamera & Bagikan Layar
+    function toggleAudio() {
+      if (!localStream) return;
+      isAudioEnabled = !isAudioEnabled;
+      localStream.getAudioTracks().forEach(t => t.enabled = isAudioEnabled);
+      const btn = document.getElementById("btnAudio");
+      btn.innerHTML = isAudioEnabled ? "<span>🎤 Mikrofon Aktif</span>" : "<span>🔇 Mikrofon Mati</span>";
+      btn.className = isAudioEnabled
+        ? "bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 transition cursor-pointer"
+        : "bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 transition cursor-pointer";
+    }
+
+    function toggleVideo() {
+      if (!localStream) return;
+      isVideoEnabled = !isVideoEnabled;
+      localStream.getVideoTracks().forEach(t => t.enabled = isVideoEnabled);
+      const btn = document.getElementById("btnVideo");
+      btn.innerHTML = isVideoEnabled ? "<span>📹 Kamera Aktif</span>" : "<span>🚫 Kamera Mati</span>";
+      btn.className = isVideoEnabled
+        ? "bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 transition cursor-pointer"
+        : "bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 transition cursor-pointer";
+    }
+
+    async function shareScreen() {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenTrack = screenStream.getVideoTracks()[0];
+        const localVideo = document.getElementById("localVideo");
+        localVideo.srcObject = screenStream;
+        localVideo.classList.remove("mirror");
+
+        // Ganti track video ke semua peserta yang terhubung
+        Object.values(activeCalls).forEach(call => {
+          const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === "video");
+          if (sender) sender.replaceTrack(screenTrack);
+        });
+
+        screenTrack.onended = () => {
+          localVideo.srcObject = localStream;
+          localVideo.classList.add("mirror");
+          const camTrack = localStream.getVideoTracks()[0];
+          if (camTrack) {
+            Object.values(activeCalls).forEach(call => {
+              const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === "video");
+              if (sender) sender.replaceTrack(camTrack);
+            });
+          }
+        };
+      } catch (err) {
+        showToast("Berbagi layar dibatalkan.");
+      }
+    }
+
+    function leaveMeeting() {
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+      if (peer) {
+        peer.destroy();
+        peer = null;
+      }
+      activeCalls = {};
+      dataConnections = {};
+
+      // Bersihkan kotak video peserta lain
+      const grid = document.getElementById("videoGrid");
+      Array.from(grid.children).forEach((child, idx) => {
+        if (idx > 0) child.remove();
+      });
+
       document.getElementById("meetingSection").classList.add("hidden");
       document.getElementById("roomBadge").classList.add("hidden");
       document.getElementById("lobbySection").classList.remove("hidden");
