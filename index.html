@@ -9,6 +9,21 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    
+    /* Memaksa iframe Jitsi melebar penuh 100% tanpa terpotong di pojok */
+    #jitsiContainer {
+      width: 100%;
+      height: calc(100vh - 112px);
+      min-height: 500px;
+      position: relative;
+    }
+    #jitsiContainer iframe {
+      width: 100% !important;
+      height: 100% !important;
+      border: none !important;
+      display: block !important;
+    }
+
     /* Custom Scrollbar */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0f172a; }
@@ -19,7 +34,7 @@
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
 
   <!-- Navbar -->
-  <header class="bg-slate-800/95 backdrop-blur border-b border-slate-700 px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-30">
+  <header class="bg-slate-800/95 backdrop-blur border-b border-slate-700 px-4 sm:px-6 h-[64px] flex items-center justify-between sticky top-0 z-30">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center font-extrabold text-base text-white shadow-lg shadow-emerald-600/30">
         BK
@@ -163,15 +178,15 @@
   </main>
 
   <!-- Area Video Conference (Tersembunyi sebelum gabung) -->
-  <section id="meetingSection" class="hidden flex-1 flex flex-col bg-black relative">
-    <div class="bg-slate-800 border-b border-slate-700 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
-      <div class="text-xs text-slate-300 flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-        <span>Peserta: <strong id="displayParticipant" class="text-white"></strong></span>
-        <span class="hidden sm:inline text-slate-600">|</span>
-        <span class="hidden sm:inline text-emerald-400 font-semibold">Presensi Tercatat ✓</span>
+  <section id="meetingSection" class="hidden w-full flex-1 flex flex-col bg-slate-950">
+    <div class="bg-slate-800 border-b border-slate-700 px-4 h-[48px] flex items-center justify-between gap-2">
+      <div class="text-xs text-slate-300 flex items-center gap-2 truncate">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+        <span class="truncate">Peserta: <strong id="displayParticipant" class="text-white"></strong></span>
+        <span class="hidden md:inline text-slate-600">|</span>
+        <span class="hidden md:inline text-emerald-400 font-semibold">Klik tombol biru "Gabung pertemuan" di bawah jika muncul</span>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 shrink-0">
         <button onclick="copyInviteLink()" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded-lg text-white transition cursor-pointer">
           Salin Info Rapat
         </button>
@@ -180,7 +195,7 @@
         </button>
       </div>
     </div>
-    <div id="jitsiContainer" class="w-full flex-1 min-h-[calc(100vh-110px)]"></div>
+    <div id="jitsiContainer"></div>
   </section>
 
   <!-- Toast Notification -->
@@ -190,7 +205,6 @@
   </div>
 
   <script>
-    // URL Web App Google Apps Script MGBK Banyumas
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwu6iinU72EfE3lmm2YDmFNVbI8xfZ-45kNr5kaGwu27-knrvvw4TgQrrIqqrbE_NPmWg/exec";
 
     let jitsiApi = null;
@@ -204,7 +218,6 @@
       }, 3500);
     }
 
-    // Muat profil pengguna terakhir & cek parameter URL ?room=...
     window.addEventListener("DOMContentLoaded", () => {
       const saved = JSON.parse(localStorage.getItem("mgbk_user_profile") || "{}");
       if (saved.nama) document.getElementById("nama").value = saved.nama;
@@ -320,7 +333,6 @@
       const jabatan = document.getElementById("jabatan").value;
       const ruang = getSelectedRoom();
 
-      // Simpan profil ke LocalStorage browser peserta
       localStorage.setItem("mgbk_user_profile", JSON.stringify({ nama, sekolah, subRayon, jabatan }));
 
       const btn = document.getElementById("btnJoin");
@@ -328,7 +340,6 @@
       btn.disabled = true;
       btn.innerHTML = `<span>Menghubungkan & Mencatat Presensi...</span>`;
 
-      // Kirim presensi ke Google Sheets
       try {
         await fetch(APPS_SCRIPT_URL, {
           method: "POST",
@@ -340,7 +351,6 @@
         console.error("Presensi error:", err);
       }
 
-      // Masuk ke layar Video Conference
       startMeeting(ruang, `${nama} (${sekolah})`);
       btn.disabled = false;
       btn.innerHTML = originalHtml;
