@@ -161,13 +161,22 @@
   <!-- Area Video Conference Native -->
   <section id="meetingSection" class="hidden flex-1 flex flex-col bg-slate-950 h-[calc(100vh-64px)]">
     
-    <!-- Top Info Bar -->
+    <!-- Top Info Bar + Pemilih Perangkat Kamera -->
     <div class="bg-slate-800/90 border-b border-slate-700 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
       <div class="text-xs text-slate-300 flex items-center gap-2">
         <span id="connStatusDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
         <span id="connStatusText">Menghubungkan ke ruang...</span>
       </div>
-      <div class="flex items-center gap-2">
+      
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Dropdown Ganti Kamera jika layar hitam -->
+        <div class="flex items-center gap-1.5 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1">
+          <span class="text-[11px] text-slate-400">Kamera:</span>
+          <select id="cameraSelect" onchange="switchCamera(this.value)" class="bg-transparent text-xs text-emerald-400 font-medium focus:outline-none max-w-[160px] truncate cursor-pointer">
+            <option value="">Mendeteksi kamera...</option>
+          </select>
+        </div>
+
         <button onclick="copyInviteLink()" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded-lg text-white cursor-pointer">
           Salin Tautan Undangan
         </button>
@@ -182,12 +191,12 @@
         <div id="videoGrid" class="w-full h-full max-w-5xl mx-auto grid grid-cols-1 gap-4">
           <!-- Kotak Video Sendiri -->
           <div class="relative w-full h-full min-h-[260px] bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-xl flex items-center justify-center">
-            <!-- Avatar Inisial Fallback jika kamera off / tidak ada -->
+            <!-- Avatar Inisial Fallback -->
             <div id="localAvatar" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-0">
               <div id="localInitials" class="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-2xl font-bold text-white shadow-lg">
                 BK
               </div>
-              <p class="text-xs text-slate-400 mt-2.5">Kamera nonaktif / tidak terdeteksi</p>
+              <p id="cameraInfoHint" class="text-xs text-slate-400 mt-2.5">Kamera nonaktif / pilih perangkat kamera di atas</p>
             </div>
             <video id="localVideo" autoplay muted playsinline class="mirror relative z-10 w-full h-full object-cover"></video>
             <div class="absolute bottom-3 left-3 z-20 bg-slate-900/85 backdrop-blur px-3 py-1.5 rounded-xl text-xs font-medium text-white border border-slate-700 flex items-center gap-2">
@@ -354,6 +363,66 @@
       }
     }
 
+    // Muat daftar perangkat kamera yang tersedia di laptop/HP
+    async function populateCameraList() {
+      const select = document.getElementById("cameraSelect");
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === "videoinput");
+        if (!videoDevices.length) {
+          select.innerHTML = `<option value="">Tidak ada kamera</option>`;
+          return;
+        }
+        const currentTrackId = localStream?.getVideoTracks()[0]?.getSettings()?.deviceId;
+        select.innerHTML = videoDevices.map((cam, idx) => {
+          const label = cam.label || `Kamera ${idx + 1}`;
+          const selected = cam.deviceId === currentTrackId ? "selected" : "";
+          return `<option value="${cam.deviceId}" ${selected}>${escapeHtml(label)}</option>`;
+        }).join("");
+      } catch (err) {
+        select.innerHTML = `<option value="">Default Kamera</option>`;
+      }
+    }
+
+    // Ganti kamera secara langsung tanpa keluar ruang rapat
+    async function switchCamera(deviceId) {
+      if (!deviceId) return;
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: deviceId } },
+          audio: false
+        });
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        if (!newVideoTrack) return;
+
+        // Hentikan track video lama
+        if (localStream) {
+          localStream.getVideoTracks().forEach(t => {
+            t.stop();
+            localStream.removeTrack(t);
+          });
+          localStream.addTrack(newVideoTrack);
+        } else {
+          localStream = newStream;
+        }
+
+        const localVideo = document.getElementById("localVideo");
+        localVideo.classList.remove("hidden");
+        localVideo.srcObject = localStream;
+        await localVideo.play().catch(() => {});
+
+        // Kirim kamera baru ke semua peserta yang sedang terhubung
+        Object.values(activeCalls).forEach(call => {
+          const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === "video");
+          if (sender) sender.replaceTrack(newVideoTrack);
+        });
+
+        showToast("Kamera berhasil diganti.");
+      } catch (err) {
+        showToast("Kamera tersebut sedang dipakai aplikasi lain / tidak merespons.");
+      }
+    }
+
     document.getElementById("joinForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const nama = document.getElementById("nama").value.trim();
@@ -387,7 +456,10 @@
       let hasVideoTrack = false;
 
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: true
+        });
         hasVideoTrack = localStream.getVideoTracks().length > 0;
       } catch (err) {
         try {
@@ -409,10 +481,13 @@
       if (hasVideoTrack) {
         localVideo.classList.remove("hidden");
         localVideo.srcObject = localStream;
+        // Memastikan browser memutar frame video secara eksplisit
+        await localVideo.play().catch(() => {});
       } else {
         localVideo.classList.add("hidden");
       }
 
+      await populateCameraList();
       updateGridLayout();
       currentRoomPrefix = "mgbk-bms-" + roomName.toLowerCase().replace(/[^a-z0-9]/g, "");
       claimSlotAndConnect(0);
@@ -561,6 +636,7 @@
       box.appendChild(video);
       box.appendChild(badge);
       grid.appendChild(box);
+      video.play().catch(() => {});
       updateGridLayout();
       updateParticipantCount();
     }
